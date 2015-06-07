@@ -5,39 +5,31 @@
  *      Author: liu
  */
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <netdb.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
-#include <math.h>
-
-
+#include <pthread.h>
 #include <errno.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <vector>
-#include <fstream>
+
 using namespace cv;
 using namespace std;
 
 
-#define SERVER_PORT 8888
-#define MAX_PKG_SIZE 20480
+#define SERVER_PORT 8888                               //Define the port
+#define MAX_PKG_SIZE 20480                             //Define max package size
 
-int k_times;
+int k_times;                                           //send k_times for each package
+Mat  image = Mat::zeros( 480, 640, CV_8UC3);           //Define image size
 
 void error(const char *msg);
-
+void *servershow(void *arg);
 void udps_respon(Mat image, int imgSize,  int sockfd);
 
 int main(void)
 {
+/////////////////////////////////UDP Initialization///////////////////////////////////
 
 	int sockfd;
 	struct sockaddr_in addr;
@@ -64,15 +56,28 @@ int main(void)
 	}
 
 
-	Mat  image = Mat::zeros( 480, 640, CV_8UC3);
-	int  imgSize = image.total()*image.elemSize();
+/////////////////////////////////Image Initialization///////////////////////////////
+
+	int  imgSize = image.total()*image.elemSize();                 //calculate image size
 	cout<<"image size is "<< imgSize <<endl;
 
 	k_times = imgSize / MAX_PKG_SIZE;
 	cout << k_times << endl;
 
-	while(1){
+//////////////////////////////////multithread stuff////////////////////////////////
 
+	pthread_t tid;												  //thread id
+	int error;
+	void *status;
+
+	error = pthread_create(&tid, NULL, servershow, NULL);
+	if(error){
+		printf("pthread is not created...\n");
+		return -1;
+	}
+
+//////////////////////////////////main thread loop////////////////////////////////
+	while(1){
 
 
 		udps_respon(image, imgSize, sockfd);
@@ -80,6 +85,7 @@ int main(void)
 	}
 
 	close(sockfd);
+	pthread_join(tid, &status);
 }
 
 void error(const char *msg)
@@ -89,12 +95,24 @@ void error(const char *msg)
 }
 
 
+void *servershow(void *arg){
+
+	while(true){
+		imshow( "Server", image );
+		waitKey(10);
+	}
+	return (void *)0;
+}
+
+
 
 void udps_respon(Mat image, int imgSize, int sockfd)
 {
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
-	uchar sockData[imgSize];
+
+	uchar sockData[imgSize];                  //receive buffer
+
 	struct recvbuf {
 			uchar buf[MAX_PKG_SIZE];
 			int flag;
@@ -113,7 +131,7 @@ void udps_respon(Mat image, int imgSize, int sockfd)
 				sockData[i*MAX_PKG_SIZE + j] = recvData.buf[j];
 			}
 
-
+//only in this case we store data to image, otherwise we break
 		if(recvData.flag == 2){
 			if(count == 46){
 				printf("Receive data finished!\n");
@@ -127,11 +145,6 @@ void udps_respon(Mat image, int imgSize, int sockfd)
 				}
 				cout<< "Write back image data finished!" << endl;
 
-				namedWindow( "Server", CV_WINDOW_AUTOSIZE );// Create a window for display.
-				if(!image.empty()){
-					imshow( "Server", image );
-				}
-				waitKey(10);
 
 			}else{
 				break;

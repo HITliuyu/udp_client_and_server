@@ -5,22 +5,11 @@
  *      Author: liu
  */
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
-#include <math.h>
-
-
-
 #include <errno.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 
 
@@ -32,7 +21,7 @@ using namespace std;
 #define SERVER_PORT 8888
 #define MAX_PKG_SIZE 20480
 
-int k_times;
+int k_times;                                           //define send k_times for each package
 
 void error(const char *msg);
 
@@ -40,6 +29,7 @@ void udpc_requ(uchar* imagecopyData,int imgSize, int sockfd,const struct sockadd
 
 int main(int argc,char **argv)
 {
+/////////////////////////////////////UDP Initialization//////////////////////////////////
 	int sockfd;
 	struct sockaddr_in addr;
 
@@ -49,14 +39,12 @@ int main(int argc,char **argv)
 		exit(1);
 	}
 
-
 	sockfd=socket(AF_INET,SOCK_DGRAM,0);
 	if(sockfd<0)
 	{
 		fprintf(stderr,"Socket Error:%s\n",strerror(errno));
 		exit(1);
 	}
-
 
 	bzero(&addr,sizeof(struct sockaddr_in));
 	addr.sin_family=AF_INET;
@@ -67,7 +55,7 @@ int main(int argc,char **argv)
 		exit(1);
 	}
 
-
+/////////////////////////////////////video initializaiton//////////////////////////////////
 	 VideoCapture cap;
 	 if(!argv[2]){
 		 cap.open(0);                        // open webcam
@@ -85,37 +73,33 @@ int main(int argc,char **argv)
 //	 cap.set(CV_CAP_PROP_FRAME_HEIGHT, 240);     // set height //
 
 	 Mat image, imagecopy;
-//	 image = imread(argv[2], CV_LOAD_IMAGE_COLOR);
 	 cap >> image;
 	 if(! image.data )                              // Check for invalid input
 	 {
 		 cout <<  "Could not open or find the image" << std::endl ;
 		 return -1;
 	 }
-	 int imgSize = image.total()*image.elemSize();
-	 k_times = imgSize / MAX_PKG_SIZE;
+	 int imgSize = image.total()*image.elemSize();        //calculate image size
+	 k_times = imgSize / MAX_PKG_SIZE;                    //calculate k_times
 	 cout<< k_times << endl;
 	 printf("THe image rows is %d\n", image.rows);
 	 printf("THe image cols is %d\n", image.cols);
 	 printf("1.image size is %d\n",image.total()*image.elemSize() );
 
+/////////////////////////////////////////////main loop//////////////////////////////////////////
 	 while(1){
 
 		 cap >> image;
-/*		 if(! image.data )                              // Check for invalid input
+		 if(! image.data )                              // Check for invalid input
 		 {
 			 cout <<  "Could not open or find the image" << std::endl ;
 			 return -1;
 		 }
-*/
 
 		 printf("THe image rows is %d\n", image.rows);
 		 printf("THe image cols is %d\n", image.cols);
 		 printf("1.image size is %d\n",image.total()*image.elemSize() );
-		 imagecopy = (image.reshape(0,1)); // to make it continuous
-
-//		 printf("2.imagecopy size is %d\n", imgSize);
-
+		 imagecopy = (image.reshape(0,1));               // to make it continuous, 3 channels and 1 row
 
 		 udpc_requ(imagecopy.data, imgSize, sockfd, addr,sizeof(struct sockaddr_in));
 
